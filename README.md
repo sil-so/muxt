@@ -63,7 +63,7 @@ MUXT uses Docker for development to ensure consistent builds across environments
 
 ```bash
 # Clone the repository
-git clone https://github.com/owner/muxt.git
+git clone https://github.com/sil-so/muxt.git
 cd muxt
 
 # Install dependencies (via Docker)
@@ -164,5 +164,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 ---
 
 <p align="center">
-  Made with ❤️ for social media enthusiasts
+  Built with Electron, React, and TypeScript
 </p>
