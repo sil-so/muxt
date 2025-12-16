@@ -1,0 +1,27 @@
+appId: com.muxt.app
+productName: MUXT
+directories:
+  output: dist
+files:
+  - dist-electron/**/*
+  - dist/**/*
+  - package.json
+mac:
+  artifactName: ${productName}-${version}-mac.${ext}
+  icon: MUXT.icns
+  target:
+    - zip
+win:
+  artifactName: ${productName}-${version}-win.${ext}
+  target:
+    - nsis
+linux:
+  artifactName: ${productName}-${version}-linux.${ext}
+  target:
+    - AppImage
+    - deb
+  category: Network
+publish:
+  provider: github
+  owner: ${GH_OWNER:-owner}
+  repo: ${GH_REPO:-muxt}

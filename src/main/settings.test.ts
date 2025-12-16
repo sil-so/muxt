@@ -1,0 +1,277 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import * as fc from 'fast-check'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import {
+  isValidPlatformOrder,
+  isValidVisibility,
+  DEFAULT_SETTINGS,
+  PLATFORM_COUNT,
+  AppSettings,
+} from './settings'
+
+// Test directory for file-based tests
+let testDir: string
+
+beforeEach(() => {
+  testDir = join(tmpdir(), `muxt-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+  mkdirSync(testDir, { recursive: true })
+})
+
+afterEach(() => {
+  try {
+    rmSync(testDir, { recursive: true, force: true })
+  } catch {}
+})
+
+// Helper to create settings file in test directory
+function writeTestSettings(settings: unknown): string {
+  const path = join(testDir, 'settings.json')
+  writeFileSync(path, JSON.stringify(settings), 'utf-8')
+  return path
+}
+
+// Helper to read settings from test directory
+function readTestSettings(path: string): AppSettings {
+  const data = readFileSync(path, 'utf-8')
+  return JSON.parse(data)
+}
+
+// Pure function versions for testing (without Electron dependency)
+function loadSettingsFromPath(settingsPath: string): AppSettings {
+  try {
+    if (!existsSync(settingsPath)) {
+      return { ...DEFAULT_SETTINGS }
+    }
+    const data = readFileSync(settingsPath, 'utf-8')
+    const parsed = JSON.parse(data)
+    const result: AppSettings = { ...DEFAULT_SETTINGS }
+    if (isValidPlatformOrder(parsed.platformOrder)) {
+      result.platformOrder = parsed.platformOrder
+    }
+    if (isValidVisibility(parsed.platformVisibility)) {
+      result.platformVisibility = parsed.platformVisibility
+    }
+    return result
+  } catch {
+    return { ...DEFAULT_SETTINGS }
+  }
+}
+
+function saveSettingsToPath(settingsPath: string, settings: Partial<AppSettings>): void {
+  const dir = join(settingsPath, '..')
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true })
+  }
+  const current = loadSettingsFromPath(settingsPath)
+  const merged: AppSettings = {
+    platformOrder: settings.platformOrder ?? current.platformOrder,
+    platformVisibility: settings.platformVisibility ?? current.platformVisibility,
+  }
+  if (!isValidPlatformOrder(merged.platformOrder)) {
+    merged.platformOrder = DEFAULT_SETTINGS.platformOrder
+  }
+  if (!isValidVisibility(merged.platformVisibility)) {
+    merged.platformVisibility = DEFAULT_SETTINGS.platformVisibility
+  }
+  writeFileSync(settingsPath, JSON.stringify(merged, null, 2), 'utf-8')
+}
+
+// Arbitrary for valid platform order (permutation of 0..4)
+const validPlatformOrderArb = fc.shuffledSubarray([0, 1, 2, 3, 4], { minLength: 5, maxLength: 5 })
+
+// Arbitrary for valid visibility (boolean array with at least one true)
+const validVisibilityArb = fc
+  .array(fc.boolean(), { minLength: PLATFORM_COUNT, maxLength: PLATFORM_COUNT })
+  .filter(arr => arr.some(v => v))
+
+// Arbitrary for valid settings
+const validSettingsArb = fc.record({
+  platformOrder: validPlatformOrderArb,
+  platformVisibility: validVisibilityArb,
+})
+
+describe('Settings Manager', () => {
+  /**
+   * **Feature: muxt-rebranding-and-updates, Property 1: Settings Round-Trip Consistency**
+   * *For any* valid settings object, saving to disk and then loading should produce an equivalent settings object.
+   * **Validates: Requirements 3.1, 3.2, 3.3, 3.4**
+   */
+  describe('Property 1: Settings Round-Trip Consistency', () => {
+    it('saving and loading settings produces equivalent values', () => {
+      fc.assert(
+        fc.property(validSettingsArb, (settings) => {
+          const settingsPath = join(testDir, `settings-${Math.random().toString(36).slice(2)}.json`)
+          
+          saveSettingsToPath(settingsPath, settings)
+          const loaded = loadSettingsFromPath(settingsPath)
+          
+          expect(loaded.platformOrder).toEqual(settings.platformOrder)
+          expect(loaded.platformVisibility).toEqual(settings.platformVisibility)
+        }),
+        { numRuns: 100 }
+      )
+    })
+  })
+
+
+  /**
+   * **Feature: muxt-rebranding-and-updates, Property 2: Settings Default Fallback**
+   * *For any* missing or corrupted settings file, loading settings should return valid default values without throwing errors.
+   * **Validates: Requirements 3.5**
+   */
+  describe('Property 2: Settings Default Fallback', () => {
+    it('returns defaults when file does not exist', () => {
+      const settingsPath = join(testDir, 'nonexistent.json')
+      const loaded = loadSettingsFromPath(settingsPath)
+      
+      expect(loaded).toEqual(DEFAULT_SETTINGS)
+    })
+
+    it('returns defaults for corrupted JSON', () => {
+      fc.assert(
+        fc.property(fc.string(), (corruptedContent) => {
+          // Skip if the string happens to be valid JSON with valid settings
+          try {
+            const parsed = JSON.parse(corruptedContent)
+            if (isValidPlatformOrder(parsed.platformOrder) && isValidVisibility(parsed.platformVisibility)) {
+              return true // Skip this case
+            }
+          } catch {}
+          
+          const settingsPath = join(testDir, `corrupted-${Math.random().toString(36).slice(2)}.json`)
+          writeFileSync(settingsPath, corruptedContent, 'utf-8')
+          
+          const loaded = loadSettingsFromPath(settingsPath)
+          
+          // Should return valid settings (either defaults or partially valid)
+          expect(isValidPlatformOrder(loaded.platformOrder)).toBe(true)
+          expect(isValidVisibility(loaded.platformVisibility)).toBe(true)
+        }),
+        { numRuns: 100 }
+      )
+    })
+  })
+
+  /**
+   * **Feature: muxt-rebranding-and-updates, Property 3: Platform Order Validity**
+   * *For any* saved platform order, the order array should be a valid permutation of platform indices (0 to N-1 where N is platform count).
+   * **Validates: Requirements 3.1, 3.3**
+   */
+  describe('Property 3: Platform Order Validity', () => {
+    it('loaded platform order is always a valid permutation', () => {
+      fc.assert(
+        fc.property(fc.anything(), (randomData) => {
+          const settingsPath = join(testDir, `order-${Math.random().toString(36).slice(2)}.json`)
+          
+          try {
+            writeFileSync(settingsPath, JSON.stringify({ platformOrder: randomData }), 'utf-8')
+          } catch {
+            return true // Skip if we can't write
+          }
+          
+          const loaded = loadSettingsFromPath(settingsPath)
+          
+          expect(isValidPlatformOrder(loaded.platformOrder)).toBe(true)
+        }),
+        { numRuns: 100 }
+      )
+    })
+
+    it('isValidPlatformOrder correctly validates permutations', () => {
+      fc.assert(
+        fc.property(validPlatformOrderArb, (order) => {
+          expect(isValidPlatformOrder(order)).toBe(true)
+        }),
+        { numRuns: 100 }
+      )
+    })
+
+    it('isValidPlatformOrder rejects invalid arrays', () => {
+      // Wrong length
+      expect(isValidPlatformOrder([0, 1, 2, 3])).toBe(false)
+      expect(isValidPlatformOrder([0, 1, 2, 3, 4, 5])).toBe(false)
+      // Duplicates
+      expect(isValidPlatformOrder([0, 0, 2, 3, 4])).toBe(false)
+      // Out of range
+      expect(isValidPlatformOrder([0, 1, 2, 3, 5])).toBe(false)
+      // Not an array
+      expect(isValidPlatformOrder('not an array')).toBe(false)
+      expect(isValidPlatformOrder(null)).toBe(false)
+    })
+  })
+
+  /**
+   * **Feature: muxt-rebranding-and-updates, Property 4: Visibility Array Integrity**
+   * *For any* saved visibility array, the array length should match the platform count and contain only boolean values.
+   * **Validates: Requirements 3.2, 3.4**
+   */
+  describe('Property 4: Visibility Array Integrity', () => {
+    it('loaded visibility is always a valid boolean array', () => {
+      fc.assert(
+        fc.property(fc.anything(), (randomData) => {
+          const settingsPath = join(testDir, `vis-${Math.random().toString(36).slice(2)}.json`)
+          
+          try {
+            writeFileSync(settingsPath, JSON.stringify({ platformVisibility: randomData }), 'utf-8')
+          } catch {
+            return true // Skip if we can't write
+          }
+          
+          const loaded = loadSettingsFromPath(settingsPath)
+          
+          expect(isValidVisibility(loaded.platformVisibility)).toBe(true)
+        }),
+        { numRuns: 100 }
+      )
+    })
+
+    it('isValidVisibility correctly validates boolean arrays', () => {
+      fc.assert(
+        fc.property(validVisibilityArb, (visibility) => {
+          expect(isValidVisibility(visibility)).toBe(true)
+        }),
+        { numRuns: 100 }
+      )
+    })
+
+    it('isValidVisibility rejects invalid arrays', () => {
+      // Wrong length
+      expect(isValidVisibility([true, true, true, true])).toBe(false)
+      // Non-boolean values
+      expect(isValidVisibility([true, true, true, true, 'yes'])).toBe(false)
+      // Not an array
+      expect(isValidVisibility('not an array')).toBe(false)
+    })
+  })
+
+  /**
+   * **Feature: muxt-rebranding-and-updates, Property 5: At Least One Visible Platform**
+   * *For any* visibility state, at least one platform should remain visible (the array should contain at least one `true` value).
+   * **Validates: Requirements 3.2, 3.4**
+   */
+  describe('Property 5: At Least One Visible Platform', () => {
+    it('loaded visibility always has at least one true value', () => {
+      fc.assert(
+        fc.property(
+          fc.array(fc.boolean(), { minLength: PLATFORM_COUNT, maxLength: PLATFORM_COUNT }),
+          (visibility) => {
+            const settingsPath = join(testDir, `atleast-${Math.random().toString(36).slice(2)}.json`)
+            
+            writeFileSync(settingsPath, JSON.stringify({ platformVisibility: visibility }), 'utf-8')
+            const loaded = loadSettingsFromPath(settingsPath)
+            
+            // Should always have at least one visible
+            expect(loaded.platformVisibility.some(v => v)).toBe(true)
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
+    it('isValidVisibility rejects all-false arrays', () => {
+      expect(isValidVisibility([false, false, false, false, false])).toBe(false)
+    })
+  })
+})
