@@ -25,7 +25,8 @@ let platformOrder: number[] = [0, 1, 2, 3, 4]
 // Visibility state for each platform
 let platformVisibility: boolean[] = [true, true, true, true, true]
 let currentSplits: number[] = [20, 40, 60, 80] // Default for 5 views
-let focusedViewIndex: number | null = null // Track which view is focused on a post
+// Track which views are currently on a post (not on feed) - these should not participate in scroll sync
+const viewsOnPost = new Set<number>()
 
 // Calculate equal splits for N visible feeds
 function calculateEqualSplits(visibleCount: number): number[] {
@@ -48,23 +49,35 @@ function recalculateSplits() {
   currentSplits = calculateEqualSplits(visibleCount)
 }
 
-// Check if URL represents a feed/home page (not a specific post)
+// Check if URL represents a feed/home page or login page (not a specific post)
 function isOnFeedPage(url: string, platformName: string): boolean {
   try {
     const parsed = new URL(url)
-    const path = parsed.pathname
+    const path = parsed.pathname.toLowerCase()
+    
+    // Common auth/login paths that should never trigger dimming
+    const authPaths = ['/login', '/signin', '/signup', '/register', '/auth', '/oauth', '/sso', '/checkpoint', '/uas']
+    if (authPaths.some(authPath => path.startsWith(authPath))) {
+      return true
+    }
     
     switch (platformName) {
       case 'X':
+        // X login flow uses /i/flow/login
+        if (path.startsWith('/i/flow/')) return true
         return path === '/' || path === '/home' || path === '/explore' || path === '/notifications' || path === '/messages'
       case 'LinkedIn':
-        return path === '/feed/' || path === '/feed'
+        // LinkedIn uses /checkpoint/, /uas/, /authwall for auth
+        if (path.startsWith('/checkpoint') || path.startsWith('/authwall')) return true
+        return path === '/feed/' || path === '/feed' || path === '/'
       case 'Bluesky':
         return path === '/' || path === '/home' || path === '/notifications' || path === '/search' || !path.includes('/post/')
       case 'Threads':
         return path === '/' || path === '/home' || (!path.includes('/post/') && !path.match(/^\/t\/\d+/))
       case 'Reddit':
         // Reddit feed: /, /r/all, /r/popular, /r/subreddit (but not /r/subreddit/comments/...)
+        // Reddit also uses /account/ for login
+        if (path.startsWith('/account/')) return true
         return path === '/' || path === '/r/all' || path === '/r/popular' || 
                (path.startsWith('/r/') && !path.includes('/comments/'))
       default:
@@ -75,38 +88,13 @@ function isOnFeedPage(url: string, platformName: string): boolean {
   }
 }
 
-// Apply dimming to unfocused views
-function applyDimming() {
-  if (focusedViewIndex === null) return
-  
-  views.forEach((view, index) => {
-    if (index !== focusedViewIndex && !view.webContents.isDestroyed()) {
-      view.webContents.executeJavaScript(`
-        (function() {
-          if (document.getElementById('muxt-dim-overlay')) return;
-          const overlay = document.createElement('div');
-          overlay.id = 'muxt-dim-overlay';
-          overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#1e1e1e;z-index:999999;pointer-events:all;';
-          document.body.appendChild(overlay);
-        })();
-      `).catch(() => {})
-    }
-  })
-}
-
-// Remove dimming from all views
-function removeDimming() {
-  views.forEach((view) => {
-    if (!view.webContents.isDestroyed()) {
-      view.webContents.executeJavaScript(`
-        (function() {
-          const overlay = document.getElementById('muxt-dim-overlay');
-          if (overlay) overlay.remove();
-        })();
-      `).catch(() => {})
-    }
-  })
-  focusedViewIndex = null
+// Update scroll sync state for a view based on whether it's on a feed or post
+function updateScrollSyncState(viewIndex: number, isOnFeed: boolean) {
+  if (isOnFeed) {
+    viewsOnPost.delete(viewIndex)
+  } else {
+    viewsOnPost.add(viewIndex)
+  }
 }
 
 function updateLayout() {
@@ -304,29 +292,17 @@ function createWindow() {
       }
     })
 
-    // Track navigation for dimming
+    // Track navigation to pause/resume scroll sync when entering/leaving posts
     view.webContents.on('did-navigate', (_event, url) => {
       const viewIndex = views.indexOf(view)
       const onFeed = isOnFeedPage(url, platform.name)
-      
-      if (!onFeed) {
-        focusedViewIndex = viewIndex
-        applyDimming()
-      } else if (focusedViewIndex === viewIndex) {
-        removeDimming()
-      }
+      updateScrollSyncState(viewIndex, onFeed)
     })
     
     view.webContents.on('did-navigate-in-page', (_event, url) => {
       const viewIndex = views.indexOf(view)
       const onFeed = isOnFeedPage(url, platform.name)
-      
-      if (!onFeed) {
-        focusedViewIndex = viewIndex
-        applyDimming()
-      } else if (focusedViewIndex === viewIndex) {
-        removeDimming()
-      }
+      updateScrollSyncState(viewIndex, onFeed)
     })
   })
   
@@ -401,8 +377,21 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.on('SCROLL_UPDATE', (event: IpcMainEvent, { y }: { y: number }) => {
-    views.forEach((view) => {
+    // Find which view sent this scroll update
+    const senderIndex = views.findIndex(v => !v.webContents.isDestroyed() && v.webContents.id === event.sender.id)
+    
+    // If the sender is on a post page, don't broadcast its scroll to others
+    // This prevents the "jump to top" issue when clicking into a post
+    if (senderIndex !== -1 && viewsOnPost.has(senderIndex)) {
+      return
+    }
+    
+    views.forEach((view, index) => {
       if (!view.webContents.isDestroyed() && view.webContents.id !== event.sender.id) {
+        // Don't send scroll commands to views that are on a post page
+        if (viewsOnPost.has(index)) {
+          return
+        }
         view.webContents.send('SCROLL_COMMAND', { y })
       }
     })

@@ -23,7 +23,7 @@
 - **Drag-and-drop reordering** - Arrange platforms in any order you like
 - **Built-in ad blocking** - Powered by Ghostery for a cleaner experience
 - **Dark mode** - Enforced dark theme across all platforms
-- **Auto-dimming** - Unfocused views dim when navigating into posts
+- **Smart scroll sync** - Scroll sync pauses when you navigate into a post, preventing other feeds from jumping
 - **Automatic updates** - Stay up-to-date with the latest features and security patches
 - **Persistent settings** - Your layout and visibility preferences are saved
 
@@ -48,7 +48,13 @@ Download the latest release from the [GitHub Releases](https://github.com/owner/
 1. Download `MUXT-x.x.x-mac.zip`
 2. Extract the archive
 3. Move `MUXT.app` to your Applications folder
-4. On first launch, right-click and select "Open" to bypass Gatekeeper
+4. Open Terminal and run:
+   ```bash
+   xattr -cr /Applications/MUXT.app
+   ```
+5. Open MUXT from your Applications folder
+
+> **Note:** The `xattr` command removes the quarantine flag that macOS adds to downloaded apps. This is required because MUXT is not code-signed with an Apple Developer certificate.
 
 ## Development
 
@@ -128,7 +134,7 @@ docker-compose run --rm -v $(pwd):/app app sh -c "npm install && npm test"
 - **TypeScript 5.5** - Type-safe JavaScript
 - **Vite 6** - Build tool and dev server
 - **Tailwind CSS 3.4** - Utility-first CSS
-- **electron-updater** - Automatic updates via GitHub Releases
+- **electron-updater** - Automatic updates via GitHub Releases (requires public repo)
 
 ## Project Structure
 
@@ -146,6 +152,17 @@ src/
     ├── components/ # React components
     └── lib/        # Utilities
 ```
+
+## Notes
+
+### Auto-Updates
+
+Auto-updates only work when the GitHub repository is public. For private repos, the update check will silently fail (no error shown to users). To enable auto-updates:
+
+1. Make the repository public, OR
+2. Set up a `GH_TOKEN` environment variable with a GitHub personal access token (not practical for distributed apps)
+
+Currently, update errors are suppressed in `src/main/autoUpdater.ts` to avoid confusing users.
 
 ## Contributing
 

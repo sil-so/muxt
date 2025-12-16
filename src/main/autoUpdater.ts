@@ -53,9 +53,10 @@ export function initAutoUpdater(win: BrowserWindow): void {
     })
   })
   
-  // Event: Error
+  // Event: Error - silently log, don't notify user
+  // (Private repos can't use auto-update without GH_TOKEN)
   autoUpdater.on('error', (error: Error) => {
-    mainWindow?.webContents.send('UPDATE_ERROR', error.message)
+    console.error('Auto-updater error:', error.message)
   })
 }
 
@@ -64,8 +65,8 @@ export function initAutoUpdater(win: BrowserWindow): void {
  */
 export function checkForUpdates(): void {
   autoUpdater.checkForUpdates().catch((error) => {
-    console.error('Failed to check for updates:', error)
-    mainWindow?.webContents.send('UPDATE_ERROR', error.message)
+    // Silently log - don't notify user (private repos can't auto-update without auth)
+    console.error('Failed to check for updates:', error.message)
   })
 }
 
