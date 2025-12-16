@@ -23,5 +23,5 @@ linux:
   category: Network
 publish:
   provider: github
-  owner: ${GH_OWNER:-owner}
-  repo: ${GH_REPO:-muxt}
+  owner: sil-so
+  repo: muxt

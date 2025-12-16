@@ -2,6 +2,11 @@
   "name": "muxt",
   "private": true,
   "version": "1.0.0",
+  "description": "Multi-column social media feed viewer",
+  "author": {
+    "name": "sil-so",
+    "email": "noreply@github.com"
+  },
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
