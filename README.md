@@ -18,7 +18,7 @@
 
 https://github.com/user-attachments/assets/633ae1c6-a363-4da6-9f56-a64e20ea1b93
 
-**Muxt** was built to solve a specific workflow friction: the constant context-switching between multiple browser tabs just to stay in the loop.
+**Muxt** was built to solve a specific workflow friction: the constant context-switching required to keep up with curated accounts across platforms.
 
 For developers and creatives who use social media to track resources, news, and design inspiration, Muxt offers a cleaner, more efficient alternative. It unifies your feeds side-by-side, removes visual clutter, and provides tools like synchronized scrolling to make consumption faster and less distracting.
 
