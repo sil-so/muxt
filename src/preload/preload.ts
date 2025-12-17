@@ -79,14 +79,10 @@ ipcRenderer.on('FOCUS_MODE_CHANGED', (_event: IpcRendererEvent, { enabled }: { e
   focusModeEnabled = enabled
 })
 
-// Listen for grayscale mode state changes and apply/remove CSS filter
+// Listen for grayscale mode state changes and apply combined filters
 ipcRenderer.on('GRAYSCALE_MODE_CHANGED', (_event: IpcRendererEvent, { enabled }: { enabled: boolean }) => {
   grayscaleModeEnabled = enabled
-  if (enabled) {
-    document.documentElement.style.filter = 'grayscale(100%)'
-  } else {
-    document.documentElement.style.filter = ''
-  }
+  applyFilters()
 })
 
 // Listen for view index assignment (sent when view is created)
@@ -94,10 +90,31 @@ ipcRenderer.on('SET_VIEW_INDEX', (_event: IpcRendererEvent, { index }: { index: 
   viewIndex = index
 })
 
-// Listen for opacity changes with smooth transition
+// Current brightness level for focus mode (1 = full, 0.07 = dimmed)
+let currentBrightness = 1
+
+// Apply combined filter (grayscale + brightness) to avoid conflicts
+function applyFilters() {
+  document.documentElement.style.transition = 'filter 200ms ease-out'
+  const filters: string[] = []
+  
+  if (grayscaleModeEnabled) {
+    filters.push('grayscale(100%)')
+  }
+  if (currentBrightness < 1) {
+    filters.push(`brightness(${currentBrightness})`)
+  }
+  
+  document.documentElement.style.filter = filters.length > 0 ? filters.join(' ') : ''
+}
+
+// Listen for brightness changes (used for focus mode dimming)
+// Using brightness instead of opacity prevents background color bleed-through
 ipcRenderer.on('SET_VIEW_OPACITY', (_event: IpcRendererEvent, { opacity }: { opacity: number }) => {
-  document.documentElement.style.transition = 'opacity 200ms ease-out'
-  document.documentElement.style.opacity = String(opacity)
+  // Convert opacity to brightness (0.12 opacity -> 0.07 brightness for darker dimming)
+  // Full opacity (1) = full brightness (1), dimmed = very dark (0.07)
+  currentBrightness = opacity === 1 ? 1 : 0.14
+  applyFilters()
 })
 
 // Track mouse enter for focus mode

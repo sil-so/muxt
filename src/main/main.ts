@@ -209,10 +209,10 @@ function createWindow() {
     
     ;(view as any)._platformIndex = platformIndex
     
-    // Send view index and initial grayscale state to preload script once loaded
+    // Send view index and grayscale state once loaded
     view.webContents.on('did-finish-load', () => {
       view.webContents.send('SET_VIEW_INDEX', { index: platformIndex })
-      // Apply grayscale filter if enabled
+      // Send grayscale state so preload can apply combined filters
       view.webContents.send('GRAYSCALE_MODE_CHANGED', { enabled: grayscaleModeEnabled })
     })
 
@@ -252,18 +252,48 @@ function createWindow() {
       // Platform Specific Fixes
       if (platform.name === 'X') {
         view.webContents.insertCSS(`
+          /* Completely hide X sidebar by default - feed starts at true edge */
           header[role="banner"] { 
-            width: 6px !important; 
+            width: 0 !important; 
+            min-width: 0 !important;
             overflow: hidden;
+            opacity: 0;
             transition: width 0.3s ease, opacity 0.3s ease;
-            opacity: 0.5;
             z-index: 9999;
+            position: relative;
           }
+          /* Hide all borders */
+          header[role="banner"],
+          header[role="banner"] *,
+          header[role="banner"] > div {
+            border-color: transparent !important;
+            border-width: 0 !important;
+          }
+          /* Hide nav text labels */
           header[role="banner"] > div > div > div > div > div > nav > a span { display: none !important; }
+          
+          /* Create invisible hover zone using ::before pseudo-element */
+          header[role="banner"]::before {
+            content: '';
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 12px;
+            height: 100vh;
+            z-index: 9998;
+          }
+          
+          /* Expand sidebar on hover (either the sidebar itself or the hover zone) */
           header[role="banner"]:hover { 
             width: 68px !important; 
             opacity: 1;
-          } 
+          }
+          header[role="banner"]:hover,
+          header[role="banner"]:hover *,
+          header[role="banner"]:hover > div {
+            border-color: inherit !important;
+            border-width: inherit !important;
+          }
         `)
       }
 
@@ -455,9 +485,9 @@ app.whenReady().then(async () => {
   ipcMain.on('TOGGLE_GRAYSCALE_MODE', () => {
     grayscaleModeEnabled = !grayscaleModeEnabled
     saveSettings({ grayscaleModeEnabled })
-    // Broadcast to renderer
+    // Broadcast to renderer (for icon state)
     win?.webContents.send('GRAYSCALE_MODE_CHANGED', { enabled: grayscaleModeEnabled })
-    // Broadcast to all views to apply/remove grayscale filter
+    // Broadcast to all views so preload can apply combined filters
     views.forEach((view) => {
       if (!view.webContents.isDestroyed()) {
         view.webContents.send('GRAYSCALE_MODE_CHANGED', { enabled: grayscaleModeEnabled })
