@@ -42,6 +42,9 @@ For developers and creatives who use social media to track resources, news, and 
 | Threads | threads.net |
 | Reddit | reddit.com |
 
+![muxt-platforms](https://github.com/user-attachments/assets/7f75b1b2-fee2-43d6-b65c-91374e273368)
+
+
 ## Installation
 
 ### Download
