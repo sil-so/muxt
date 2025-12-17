@@ -27,6 +27,11 @@ let platformVisibility: boolean[] = [true, true, true, true, true]
 let currentSplits: number[] = [20, 40, 60, 80] // Default for 5 views
 // Track which views are currently on a post (not on feed) - these should not participate in scroll sync
 const viewsOnPost = new Set<number>()
+// Scroll sync and focus mode state
+let scrollSyncEnabled: boolean = true
+let focusModeEnabled: boolean = false
+// Track which view has mouse focus for focus mode
+let focusedViewIndex: number | null = null
 
 // Calculate equal splits for N visible feeds
 function calculateEqualSplits(visibleCount: number): number[] {
@@ -202,6 +207,11 @@ function createWindow() {
     views.push(view)
     
     ;(view as any)._platformIndex = platformIndex
+    
+    // Send view index to preload script once loaded
+    view.webContents.on('did-finish-load', () => {
+      view.webContents.send('SET_VIEW_INDEX', { index: platformIndex })
+    })
 
     const platformOrigin = new URL(platform.url).origin
     view.webContents.setWindowOpenHandler(({ url }) => {
@@ -317,6 +327,18 @@ function createWindow() {
   win.on('resize', () => {
     updateLayout()
   })
+  
+  // Reset focus mode opacity when window loses focus (mouse likely left)
+  win.on('blur', () => {
+    if (focusModeEnabled && focusedViewIndex !== null) {
+      focusedViewIndex = null
+      views.forEach((view) => {
+        if (!view.webContents.isDestroyed()) {
+          view.webContents.send('SET_VIEW_OPACITY', { opacity: 1 })
+        }
+      })
+    }
+  })
 
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL as string)
@@ -339,6 +361,8 @@ app.whenReady().then(async () => {
   const savedSettings = loadSettings()
   platformOrder = savedSettings.platformOrder
   platformVisibility = savedSettings.platformVisibility
+  scrollSyncEnabled = savedSettings.scrollSyncEnabled
+  focusModeEnabled = savedSettings.focusModeEnabled
   recalculateSplits()
   
   try {
@@ -376,7 +400,80 @@ app.whenReady().then(async () => {
     })
   })
 
+  // Scroll sync toggle handler
+  ipcMain.on('TOGGLE_SCROLL_SYNC', () => {
+    scrollSyncEnabled = !scrollSyncEnabled
+    saveSettings({ scrollSyncEnabled })
+    // Broadcast to renderer
+    win?.webContents.send('SCROLL_SYNC_CHANGED', { enabled: scrollSyncEnabled })
+    // Broadcast to all views
+    views.forEach((view) => {
+      if (!view.webContents.isDestroyed()) {
+        view.webContents.send('SCROLL_SYNC_CHANGED', { enabled: scrollSyncEnabled })
+      }
+    })
+  })
+
+  // Get initial scroll sync state
+  ipcMain.handle('GET_SCROLL_SYNC_STATE', () => {
+    return { enabled: scrollSyncEnabled }
+  })
+
+  // Focus mode toggle handler
+  ipcMain.on('TOGGLE_FOCUS_MODE', () => {
+    focusModeEnabled = !focusModeEnabled
+    saveSettings({ focusModeEnabled })
+    // Broadcast to renderer
+    win?.webContents.send('FOCUS_MODE_CHANGED', { enabled: focusModeEnabled })
+    // Broadcast to all views
+    views.forEach((view) => {
+      if (!view.webContents.isDestroyed()) {
+        view.webContents.send('FOCUS_MODE_CHANGED', { enabled: focusModeEnabled })
+      }
+    })
+    // Reset opacity when focus mode is disabled
+    if (!focusModeEnabled) {
+      focusedViewIndex = null
+      views.forEach((view) => {
+        if (!view.webContents.isDestroyed()) {
+          view.webContents.send('SET_VIEW_OPACITY', { opacity: 1 })
+        }
+      })
+    }
+  })
+
+  // Get initial focus mode state
+  ipcMain.handle('GET_FOCUS_MODE_STATE', () => {
+    return { enabled: focusModeEnabled }
+  })
+
+  // Focus view tracking handler - called when mouse enters a view
+  // We only receive mouseenter events now, not mouseleave
+  // This prevents blinking when moving between feeds
+  ipcMain.on('FOCUS_VIEW', (event: IpcMainEvent, { viewIndex }: { viewIndex: number | null }) => {
+    if (!focusModeEnabled) return
+    
+    // Only update if the focused view actually changed
+    if (focusedViewIndex === viewIndex) return
+    
+    focusedViewIndex = viewIndex
+    
+    // Apply opacity to all views
+    views.forEach((view, index) => {
+      if (view.webContents.isDestroyed()) return
+      
+      // Dim unfocused views to 12% opacity
+      const opacity = index === viewIndex ? 1 : 0.12
+      view.webContents.send('SET_VIEW_OPACITY', { opacity })
+    })
+  })
+
   ipcMain.on('SCROLL_UPDATE', (event: IpcMainEvent, { y }: { y: number }) => {
+    // Check if scroll sync is enabled
+    if (!scrollSyncEnabled) {
+      return
+    }
+    
     // Find which view sent this scroll update
     const senderIndex = views.findIndex(v => !v.webContents.isDestroyed() && v.webContents.id === event.sender.id)
     

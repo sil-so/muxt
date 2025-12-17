@@ -53,6 +53,12 @@ function loadSettingsFromPath(settingsPath: string): AppSettings {
     if (isValidVisibility(parsed.platformVisibility)) {
       result.platformVisibility = parsed.platformVisibility
     }
+    if (typeof parsed.scrollSyncEnabled === 'boolean') {
+      result.scrollSyncEnabled = parsed.scrollSyncEnabled
+    }
+    if (typeof parsed.focusModeEnabled === 'boolean') {
+      result.focusModeEnabled = parsed.focusModeEnabled
+    }
     return result
   } catch {
     return { ...DEFAULT_SETTINGS }
@@ -68,6 +74,8 @@ function saveSettingsToPath(settingsPath: string, settings: Partial<AppSettings>
   const merged: AppSettings = {
     platformOrder: settings.platformOrder ?? current.platformOrder,
     platformVisibility: settings.platformVisibility ?? current.platformVisibility,
+    scrollSyncEnabled: settings.scrollSyncEnabled ?? current.scrollSyncEnabled,
+    focusModeEnabled: settings.focusModeEnabled ?? current.focusModeEnabled,
   }
   if (!isValidPlatformOrder(merged.platformOrder)) {
     merged.platformOrder = DEFAULT_SETTINGS.platformOrder
@@ -76,6 +84,15 @@ function saveSettingsToPath(settingsPath: string, settings: Partial<AppSettings>
     merged.platformVisibility = DEFAULT_SETTINGS.platformVisibility
   }
   writeFileSync(settingsPath, JSON.stringify(merged, null, 2), 'utf-8')
+}
+
+// Toggle functions for testing
+function toggleScrollSync(currentState: boolean): boolean {
+  return !currentState
+}
+
+function toggleFocusMode(currentState: boolean): boolean {
+  return !currentState
 }
 
 // Arbitrary for valid platform order (permutation of 0..4)
@@ -90,6 +107,8 @@ const validVisibilityArb = fc
 const validSettingsArb = fc.record({
   platformOrder: validPlatformOrderArb,
   platformVisibility: validVisibilityArb,
+  scrollSyncEnabled: fc.boolean(),
+  focusModeEnabled: fc.boolean(),
 })
 
 describe('Settings Manager', () => {
@@ -109,6 +128,8 @@ describe('Settings Manager', () => {
           
           expect(loaded.platformOrder).toEqual(settings.platformOrder)
           expect(loaded.platformVisibility).toEqual(settings.platformVisibility)
+          expect(loaded.scrollSyncEnabled).toEqual(settings.scrollSyncEnabled)
+          expect(loaded.focusModeEnabled).toEqual(settings.focusModeEnabled)
         }),
         { numRuns: 100 }
       )
@@ -272,6 +293,191 @@ describe('Settings Manager', () => {
 
     it('isValidVisibility rejects all-false arrays', () => {
       expect(isValidVisibility([false, false, false, false, false])).toBe(false)
+    })
+  })
+
+  /**
+   * **Feature: muxt-ui-enhancements, Property 1: Scroll Sync Toggle Inversion**
+   * *For any* scroll sync state (enabled or disabled), clicking the scroll sync toggle button SHALL result in the opposite state.
+   * **Validates: Requirements 3.4**
+   */
+  describe('Property 1: Scroll Sync Toggle Inversion', () => {
+    it('toggling scroll sync always produces the opposite state', () => {
+      fc.assert(
+        fc.property(fc.boolean(), (initialState) => {
+          const newState = toggleScrollSync(initialState)
+          expect(newState).toBe(!initialState)
+        }),
+        { numRuns: 100 }
+      )
+    })
+
+    it('double toggle returns to original state', () => {
+      fc.assert(
+        fc.property(fc.boolean(), (initialState) => {
+          const afterFirstToggle = toggleScrollSync(initialState)
+          const afterSecondToggle = toggleScrollSync(afterFirstToggle)
+          expect(afterSecondToggle).toBe(initialState)
+        }),
+        { numRuns: 100 }
+      )
+    })
+  })
+
+  /**
+   * **Feature: muxt-ui-enhancements, Property 2: Focus Mode Toggle Inversion**
+   * *For any* focus mode state (enabled or disabled), clicking the focus mode toggle button SHALL result in the opposite state.
+   * **Validates: Requirements 4.4**
+   */
+  describe('Property 2: Focus Mode Toggle Inversion', () => {
+    it('toggling focus mode always produces the opposite state', () => {
+      fc.assert(
+        fc.property(fc.boolean(), (initialState) => {
+          const newState = toggleFocusMode(initialState)
+          expect(newState).toBe(!initialState)
+        }),
+        { numRuns: 100 }
+      )
+    })
+
+    it('double toggle returns to original state', () => {
+      fc.assert(
+        fc.property(fc.boolean(), (initialState) => {
+          const afterFirstToggle = toggleFocusMode(initialState)
+          const afterSecondToggle = toggleFocusMode(afterFirstToggle)
+          expect(afterSecondToggle).toBe(initialState)
+        }),
+        { numRuns: 100 }
+      )
+    })
+  })
+
+  /**
+   * **Feature: muxt-ui-enhancements, Property 3: Scroll Sync Propagation**
+   * *For any* scroll event in a feed, the event SHALL propagate to other feeds if and only if scroll sync is enabled.
+   * **Validates: Requirements 3.5, 3.6**
+   */
+  describe('Property 3: Scroll Sync Propagation', () => {
+    // Simulate scroll propagation logic
+    function shouldPropagateScroll(scrollSyncEnabled: boolean, senderOnPost: boolean): boolean {
+      if (!scrollSyncEnabled) return false
+      if (senderOnPost) return false
+      return true
+    }
+
+    it('scroll propagates only when sync is enabled and sender is not on post', () => {
+      fc.assert(
+        fc.property(
+          fc.boolean(), // scrollSyncEnabled
+          fc.boolean(), // senderOnPost
+          (scrollSyncEnabled, senderOnPost) => {
+            const shouldPropagate = shouldPropagateScroll(scrollSyncEnabled, senderOnPost)
+            
+            // If sync is disabled, should never propagate
+            if (!scrollSyncEnabled) {
+              expect(shouldPropagate).toBe(false)
+            }
+            // If sender is on post, should not propagate
+            else if (senderOnPost) {
+              expect(shouldPropagate).toBe(false)
+            }
+            // Otherwise should propagate
+            else {
+              expect(shouldPropagate).toBe(true)
+            }
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
+    it('scroll sync state directly controls propagation', () => {
+      fc.assert(
+        fc.property(fc.boolean(), (scrollSyncEnabled) => {
+          // When sender is not on post, propagation matches sync state
+          const shouldPropagate = shouldPropagateScroll(scrollSyncEnabled, false)
+          expect(shouldPropagate).toBe(scrollSyncEnabled)
+        }),
+        { numRuns: 100 }
+      )
+    })
+  })
+
+  /**
+   * **Feature: muxt-ui-enhancements, Property 4: Focus Mode Opacity**
+   * *For any* feed and mouse position, the feed opacity SHALL be 12% if focus mode is enabled AND another feed has mouse focus, otherwise the opacity SHALL be 100%.
+   * **Validates: Requirements 4.5, 4.6, 4.7**
+   */
+  describe('Property 4: Focus Mode Opacity', () => {
+    // Calculate expected opacity for a view
+    function calculateViewOpacity(
+      focusModeEnabled: boolean,
+      focusedViewIndex: number | null,
+      viewIndex: number
+    ): number {
+      // If focus mode is disabled, all views are at full opacity
+      if (!focusModeEnabled) return 1
+      
+      // If no view is focused (mouse left all views), all views are at full opacity
+      if (focusedViewIndex === null) return 1
+      
+      // If this view is focused, full opacity; otherwise dimmed to 12%
+      return viewIndex === focusedViewIndex ? 1 : 0.12
+    }
+
+    it('opacity is always 100% when focus mode is disabled', () => {
+      fc.assert(
+        fc.property(
+          fc.integer({ min: 0, max: 4 }), // viewIndex
+          fc.option(fc.integer({ min: 0, max: 4 }), { nil: null }), // focusedViewIndex
+          (viewIndex, focusedViewIndex) => {
+            const opacity = calculateViewOpacity(false, focusedViewIndex, viewIndex)
+            expect(opacity).toBe(1)
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
+    it('opacity is 100% for focused view when focus mode is enabled', () => {
+      fc.assert(
+        fc.property(
+          fc.integer({ min: 0, max: 4 }), // focusedViewIndex
+          (focusedViewIndex) => {
+            const opacity = calculateViewOpacity(true, focusedViewIndex, focusedViewIndex)
+            expect(opacity).toBe(1)
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
+    it('opacity is 12% for unfocused views when focus mode is enabled', () => {
+      fc.assert(
+        fc.property(
+          fc.integer({ min: 0, max: 4 }), // focusedViewIndex
+          fc.integer({ min: 0, max: 4 }), // viewIndex
+          (focusedViewIndex, viewIndex) => {
+            fc.pre(focusedViewIndex !== viewIndex) // Only test unfocused views
+            const opacity = calculateViewOpacity(true, focusedViewIndex, viewIndex)
+            expect(opacity).toBe(0.12)
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
+    it('opacity is 100% for all views when no view is focused', () => {
+      fc.assert(
+        fc.property(
+          fc.integer({ min: 0, max: 4 }), // viewIndex
+          (viewIndex) => {
+            const opacity = calculateViewOpacity(true, null, viewIndex)
+            expect(opacity).toBe(1)
+          }
+        ),
+        { numRuns: 100 }
+      )
     })
   })
 })

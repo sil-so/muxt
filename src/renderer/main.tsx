@@ -11,6 +11,10 @@ import {
   RedditIcon,
   EyeIcon,
   EyeSlashIcon,
+  ScrollSyncOnIcon,
+  ScrollSyncOffIcon,
+  FocusModeOnIcon,
+  FocusModeOffIcon,
 } from './components/icons'
 import { calculateEqualSplits, getVisibleCount, canHide } from './lib/feedState'
 import './globals.css'
@@ -31,6 +35,10 @@ const App = () => {
   const [visibility, setVisibility] = React.useState<boolean[]>([])
   const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null)
+  
+  // Scroll sync and focus mode state
+  const [scrollSyncEnabled, setScrollSyncEnabled] = React.useState<boolean>(true)
+  const [focusModeEnabled, setFocusModeEnabled] = React.useState<boolean>(false)
   
   // Auto-updater state
   const [updateInfo, setUpdateInfo] = React.useState<UpdateInfo | null>(null)
@@ -78,10 +86,36 @@ const App = () => {
       setOrder(o)
       setVisibility(v)
     })
+    
+    // Scroll sync and focus mode event listeners
+    window.electron.onScrollSyncChanged((enabled) => {
+      setScrollSyncEnabled(enabled)
+    })
+    
+    window.electron.onFocusModeChanged((enabled) => {
+      setFocusModeEnabled(enabled)
+    })
+    
+    // Get initial scroll sync and focus mode states
+    window.electron.getScrollSyncState().then(({ enabled }) => {
+      setScrollSyncEnabled(enabled)
+    })
+    
+    window.electron.getFocusModeState().then(({ enabled }) => {
+      setFocusModeEnabled(enabled)
+    })
   }, [])
 
   const handleReload = () => {
     window.electron.reloadAll()
+  }
+  
+  const handleToggleScrollSync = () => {
+    window.electron.toggleScrollSync()
+  }
+  
+  const handleToggleFocusMode = () => {
+    window.electron.toggleFocusMode()
   }
   
   const handleResize = (splits: number[]) => {
@@ -226,8 +260,34 @@ const App = () => {
           })}
         </div>
         
-        {/* Right side - Reload Button */}
-        <div className="no-drag flex items-center pr-3">
+        {/* Right side - Toggle buttons and Reload Button */}
+        <div className="no-drag flex items-center gap-1 pr-3">
+          <button 
+            onClick={handleToggleScrollSync} 
+            className={`transition-colors p-1 rounded focus:outline-none ${
+              scrollSyncEnabled ? 'text-[#666] hover:text-[#888]' : 'text-[#444] hover:text-[#666]'
+            }`}
+            title={scrollSyncEnabled ? 'Disable Scroll Sync' : 'Enable Scroll Sync'}
+          >
+            {scrollSyncEnabled ? (
+              <ScrollSyncOnIcon size={16} />
+            ) : (
+              <ScrollSyncOffIcon size={16} />
+            )}
+          </button>
+          <button 
+            onClick={handleToggleFocusMode} 
+            className={`transition-colors p-1 rounded focus:outline-none ${
+              focusModeEnabled ? 'text-[#666] hover:text-[#888]' : 'text-[#444] hover:text-[#666]'
+            }`}
+            title={focusModeEnabled ? 'Disable Focus Mode' : 'Enable Focus Mode'}
+          >
+            {focusModeEnabled ? (
+              <FocusModeOnIcon size={16} />
+            ) : (
+              <FocusModeOffIcon size={16} />
+            )}
+          </button>
           <button 
             onClick={handleReload} 
             className="text-[#444] hover:text-[#666] transition-colors p-1 rounded focus:outline-none"

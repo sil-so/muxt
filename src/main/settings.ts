@@ -5,6 +5,8 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 export interface AppSettings {
   platformOrder: number[]
   platformVisibility: boolean[]
+  scrollSyncEnabled: boolean
+  focusModeEnabled: boolean
 }
 
 const PLATFORM_COUNT = 5
@@ -12,6 +14,8 @@ const PLATFORM_COUNT = 5
 const DEFAULT_SETTINGS: AppSettings = {
   platformOrder: [0, 1, 2, 3, 4],
   platformVisibility: [true, true, true, true, true],
+  scrollSyncEnabled: true,
+  focusModeEnabled: false,
 }
 
 /**
@@ -66,6 +70,14 @@ export function loadSettings(): AppSettings {
       result.platformVisibility = parsed.platformVisibility
     }
 
+    if (typeof parsed.scrollSyncEnabled === 'boolean') {
+      result.scrollSyncEnabled = parsed.scrollSyncEnabled
+    }
+
+    if (typeof parsed.focusModeEnabled === 'boolean') {
+      result.focusModeEnabled = parsed.focusModeEnabled
+    }
+
     return result
   } catch {
     return { ...DEFAULT_SETTINGS }
@@ -88,6 +100,8 @@ export function saveSettings(settings: Partial<AppSettings>): void {
     const merged: AppSettings = {
       platformOrder: settings.platformOrder ?? current.platformOrder,
       platformVisibility: settings.platformVisibility ?? current.platformVisibility,
+      scrollSyncEnabled: settings.scrollSyncEnabled ?? current.scrollSyncEnabled,
+      focusModeEnabled: settings.focusModeEnabled ?? current.focusModeEnabled,
     }
 
     // Validate before saving

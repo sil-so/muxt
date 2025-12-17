@@ -1,5 +1,5 @@
 appId: com.muxt.app
-productName: MUXT
+productName: Muxt
 directories:
   output: dist
 files:

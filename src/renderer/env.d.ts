@@ -25,6 +25,16 @@ interface Window {
     onPlatformOrderChanged: (callback: (order: number[]) => void) => void
     onVisibilityChanged: (callback: (visibility: boolean[]) => void) => void
     
+    // Scroll sync methods
+    toggleScrollSync: () => void
+    getScrollSyncState: () => Promise<{ enabled: boolean }>
+    onScrollSyncChanged: (callback: (enabled: boolean) => void) => void
+    
+    // Focus mode methods
+    toggleFocusMode: () => void
+    getFocusModeState: () => Promise<{ enabled: boolean }>
+    onFocusModeChanged: (callback: (enabled: boolean) => void) => void
+    
     // Auto-updater methods
     checkForUpdates: () => void
     downloadUpdate: () => void

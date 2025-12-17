@@ -1,7 +1,7 @@
-# MUXT
+# Muxt
 
 <p align="center">
-  <img src="1024x1024muxt.png" alt="MUXT Logo" width="128" height="128">
+  <img src="1024x1024muxt.png" alt="Muxt Logo" width="128" height="128">
 </p>
 
 <p align="center">
@@ -17,15 +17,16 @@
 ## Features
 
 - **Multi-column view** - Display up to 5 social platforms simultaneously
-- **Synchronized scrolling** - Scroll all feeds together for a unified experience
+- **Synchronized scrolling** - Scroll all feeds together for a unified experience, with a toggle to enable/disable
+- **Smart scroll sync** - Scroll sync automatically pauses when you navigate into a post, preventing other feeds from jumping
+- **Focus mode** - Dims unfocused feeds so you can concentrate on one at a time
 - **Resizable columns** - Drag to resize columns to your preference
 - **Toggleable feeds** - Show/hide individual platforms with a click
 - **Drag-and-drop reordering** - Arrange platforms in any order you like
 - **Built-in ad blocking** - Powered by Ghostery for a cleaner experience
 - **Dark mode** - Enforced dark theme across all platforms
-- **Smart scroll sync** - Scroll sync pauses when you navigate into a post, preventing other feeds from jumping
 - **Automatic updates** - Stay up-to-date with the latest features and security patches
-- **Persistent settings** - Your layout and visibility preferences are saved
+- **Persistent settings** - Your layout, visibility, scroll sync, and focus mode preferences are saved between sessions
 
 ## Supported Platforms
 
@@ -45,20 +46,20 @@ Download the latest release from the [GitHub Releases](https://github.com/owner/
 
 ### macOS
 
-1. Download `MUXT-x.x.x-mac.zip`
+1. Download `Muxt-x.x.x-mac.zip`
 2. Extract the archive
-3. Move `MUXT.app` to your Applications folder
+3. Move `Muxt.app` to your Applications folder
 4. Open Terminal and run:
    ```bash
-   xattr -cr /Applications/MUXT.app
+   xattr -cr /Applications/Muxt.app
    ```
-5. Open MUXT from your Applications folder
+5. Open Muxt from your Applications folder
 
-> **Note:** The `xattr` command removes the quarantine flag that macOS adds to downloaded apps. This is required because MUXT is not code-signed with an Apple Developer certificate.
+> **Note:** The `xattr` command removes the quarantine flag that macOS adds to downloaded apps. This is required because Muxt is not code-signed with an Apple Developer certificate.
 
 ## Development
 
-MUXT uses Docker for development to ensure consistent builds across environments.
+Muxt uses Docker for development to ensure consistent builds across environments.
 
 ### Prerequisites
 
@@ -152,6 +153,17 @@ src/
     ├── components/ # React components
     └── lib/        # Utilities
 ```
+
+## Known Limitations
+
+### Threads/Instagram Authentication
+
+When logging into Threads, the Instagram authentication flow may redirect to your default browser instead of completing within the app. This is a known limitation of how Instagram handles OAuth authentication in embedded browsers.
+
+**Workaround:**
+1. Complete the Instagram login in your default browser
+2. Return to Muxt
+3. Click the reload button (or use the Threads feed's refresh) to complete the authentication
 
 ## Notes
 
