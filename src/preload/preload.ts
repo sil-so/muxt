@@ -71,9 +71,22 @@ ipcRenderer.on('SCROLL_SYNC_CHANGED', (_event: IpcRendererEvent, { enabled }: { 
 let focusModeEnabled = false
 let viewIndex: number | null = null
 
+// Grayscale mode state
+let grayscaleModeEnabled = false
+
 // Listen for focus mode state changes
 ipcRenderer.on('FOCUS_MODE_CHANGED', (_event: IpcRendererEvent, { enabled }: { enabled: boolean }) => {
   focusModeEnabled = enabled
+})
+
+// Listen for grayscale mode state changes and apply/remove CSS filter
+ipcRenderer.on('GRAYSCALE_MODE_CHANGED', (_event: IpcRendererEvent, { enabled }: { enabled: boolean }) => {
+  grayscaleModeEnabled = enabled
+  if (enabled) {
+    document.documentElement.style.filter = 'grayscale(100%)'
+  } else {
+    document.documentElement.style.filter = ''
+  }
 })
 
 // Listen for view index assignment (sent when view is created)
@@ -176,6 +189,13 @@ contextBridge.exposeInMainWorld('electron', {
   getFocusModeState: () => ipcRenderer.invoke('GET_FOCUS_MODE_STATE'),
   onFocusModeChanged: (callback: (enabled: boolean) => void) => {
     ipcRenderer.on('FOCUS_MODE_CHANGED', (_event, { enabled }) => callback(enabled))
+  },
+
+  // Grayscale mode methods
+  toggleGrayscaleMode: () => ipcRenderer.send('TOGGLE_GRAYSCALE_MODE'),
+  getGrayscaleModeState: () => ipcRenderer.invoke('GET_GRAYSCALE_MODE_STATE'),
+  onGrayscaleModeChanged: (callback: (enabled: boolean) => void) => {
+    ipcRenderer.on('GRAYSCALE_MODE_CHANGED', (_event, { enabled }) => callback(enabled))
   },
 
   // Auto-updater methods

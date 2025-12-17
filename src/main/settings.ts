@@ -7,6 +7,7 @@ export interface AppSettings {
   platformVisibility: boolean[]
   scrollSyncEnabled: boolean
   focusModeEnabled: boolean
+  grayscaleModeEnabled: boolean
 }
 
 const PLATFORM_COUNT = 5
@@ -16,6 +17,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   platformVisibility: [true, true, true, true, true],
   scrollSyncEnabled: true,
   focusModeEnabled: false,
+  grayscaleModeEnabled: false,
 }
 
 /**
@@ -78,6 +80,10 @@ export function loadSettings(): AppSettings {
       result.focusModeEnabled = parsed.focusModeEnabled
     }
 
+    if (typeof parsed.grayscaleModeEnabled === 'boolean') {
+      result.grayscaleModeEnabled = parsed.grayscaleModeEnabled
+    }
+
     return result
   } catch {
     return { ...DEFAULT_SETTINGS }
@@ -102,6 +108,7 @@ export function saveSettings(settings: Partial<AppSettings>): void {
       platformVisibility: settings.platformVisibility ?? current.platformVisibility,
       scrollSyncEnabled: settings.scrollSyncEnabled ?? current.scrollSyncEnabled,
       focusModeEnabled: settings.focusModeEnabled ?? current.focusModeEnabled,
+      grayscaleModeEnabled: settings.grayscaleModeEnabled ?? current.grayscaleModeEnabled,
     }
 
     // Validate before saving

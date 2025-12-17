@@ -27,9 +27,10 @@ let platformVisibility: boolean[] = [true, true, true, true, true]
 let currentSplits: number[] = [20, 40, 60, 80] // Default for 5 views
 // Track which views are currently on a post (not on feed) - these should not participate in scroll sync
 const viewsOnPost = new Set<number>()
-// Scroll sync and focus mode state
+// Scroll sync, focus mode, and grayscale mode state
 let scrollSyncEnabled: boolean = true
 let focusModeEnabled: boolean = false
+let grayscaleModeEnabled: boolean = false
 // Track which view has mouse focus for focus mode
 let focusedViewIndex: number | null = null
 
@@ -208,9 +209,11 @@ function createWindow() {
     
     ;(view as any)._platformIndex = platformIndex
     
-    // Send view index to preload script once loaded
+    // Send view index and initial grayscale state to preload script once loaded
     view.webContents.on('did-finish-load', () => {
       view.webContents.send('SET_VIEW_INDEX', { index: platformIndex })
+      // Apply grayscale filter if enabled
+      view.webContents.send('GRAYSCALE_MODE_CHANGED', { enabled: grayscaleModeEnabled })
     })
 
     const platformOrigin = new URL(platform.url).origin
@@ -363,6 +366,7 @@ app.whenReady().then(async () => {
   platformVisibility = savedSettings.platformVisibility
   scrollSyncEnabled = savedSettings.scrollSyncEnabled
   focusModeEnabled = savedSettings.focusModeEnabled
+  grayscaleModeEnabled = savedSettings.grayscaleModeEnabled
   recalculateSplits()
   
   try {
@@ -445,6 +449,25 @@ app.whenReady().then(async () => {
   // Get initial focus mode state
   ipcMain.handle('GET_FOCUS_MODE_STATE', () => {
     return { enabled: focusModeEnabled }
+  })
+
+  // Grayscale mode toggle handler
+  ipcMain.on('TOGGLE_GRAYSCALE_MODE', () => {
+    grayscaleModeEnabled = !grayscaleModeEnabled
+    saveSettings({ grayscaleModeEnabled })
+    // Broadcast to renderer
+    win?.webContents.send('GRAYSCALE_MODE_CHANGED', { enabled: grayscaleModeEnabled })
+    // Broadcast to all views to apply/remove grayscale filter
+    views.forEach((view) => {
+      if (!view.webContents.isDestroyed()) {
+        view.webContents.send('GRAYSCALE_MODE_CHANGED', { enabled: grayscaleModeEnabled })
+      }
+    })
+  })
+
+  // Get initial grayscale mode state
+  ipcMain.handle('GET_GRAYSCALE_MODE_STATE', () => {
+    return { enabled: grayscaleModeEnabled }
   })
 
   // Focus view tracking handler - called when mouse enters a view

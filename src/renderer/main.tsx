@@ -15,6 +15,8 @@ import {
   ScrollSyncOffIcon,
   FocusModeOnIcon,
   FocusModeOffIcon,
+  ColorModeIcon,
+  GrayscaleModeIcon,
 } from './components/icons'
 import { calculateEqualSplits, getVisibleCount, canHide } from './lib/feedState'
 import './globals.css'
@@ -36,9 +38,10 @@ const App = () => {
   const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null)
   
-  // Scroll sync and focus mode state
+  // Scroll sync, focus mode, and grayscale mode state
   const [scrollSyncEnabled, setScrollSyncEnabled] = React.useState<boolean>(true)
   const [focusModeEnabled, setFocusModeEnabled] = React.useState<boolean>(false)
+  const [grayscaleModeEnabled, setGrayscaleModeEnabled] = React.useState<boolean>(false)
   
   // Auto-updater state
   const [updateInfo, setUpdateInfo] = React.useState<UpdateInfo | null>(null)
@@ -96,13 +99,22 @@ const App = () => {
       setFocusModeEnabled(enabled)
     })
     
-    // Get initial scroll sync and focus mode states
+    // Grayscale mode event listener
+    window.electron.onGrayscaleModeChanged((enabled) => {
+      setGrayscaleModeEnabled(enabled)
+    })
+    
+    // Get initial scroll sync, focus mode, and grayscale mode states
     window.electron.getScrollSyncState().then(({ enabled }) => {
       setScrollSyncEnabled(enabled)
     })
     
     window.electron.getFocusModeState().then(({ enabled }) => {
       setFocusModeEnabled(enabled)
+    })
+    
+    window.electron.getGrayscaleModeState().then(({ enabled }) => {
+      setGrayscaleModeEnabled(enabled)
     })
   }, [])
 
@@ -116,6 +128,10 @@ const App = () => {
   
   const handleToggleFocusMode = () => {
     window.electron.toggleFocusMode()
+  }
+  
+  const handleToggleGrayscaleMode = () => {
+    window.electron.toggleGrayscaleMode()
   }
   
   const handleResize = (splits: number[]) => {
@@ -286,6 +302,19 @@ const App = () => {
               <FocusModeOnIcon size={16} />
             ) : (
               <FocusModeOffIcon size={16} />
+            )}
+          </button>
+          <button 
+            onClick={handleToggleGrayscaleMode} 
+            className={`transition-colors p-1 rounded focus:outline-none ${
+              grayscaleModeEnabled ? 'text-[#666] hover:text-[#888]' : 'text-[#444] hover:text-[#666]'
+            }`}
+            title={grayscaleModeEnabled ? 'Disable Grayscale Mode' : 'Enable Grayscale Mode'}
+          >
+            {grayscaleModeEnabled ? (
+              <GrayscaleModeIcon size={16} />
+            ) : (
+              <ColorModeIcon size={16} />
             )}
           </button>
           <button 

@@ -35,6 +35,11 @@ interface Window {
     getFocusModeState: () => Promise<{ enabled: boolean }>
     onFocusModeChanged: (callback: (enabled: boolean) => void) => void
     
+    // Grayscale mode methods
+    toggleGrayscaleMode: () => void
+    getGrayscaleModeState: () => Promise<{ enabled: boolean }>
+    onGrayscaleModeChanged: (callback: (enabled: boolean) => void) => void
+    
     // Auto-updater methods
     checkForUpdates: () => void
     downloadUpdate: () => void

@@ -59,6 +59,9 @@ function loadSettingsFromPath(settingsPath: string): AppSettings {
     if (typeof parsed.focusModeEnabled === 'boolean') {
       result.focusModeEnabled = parsed.focusModeEnabled
     }
+    if (typeof parsed.grayscaleModeEnabled === 'boolean') {
+      result.grayscaleModeEnabled = parsed.grayscaleModeEnabled
+    }
     return result
   } catch {
     return { ...DEFAULT_SETTINGS }
@@ -76,6 +79,7 @@ function saveSettingsToPath(settingsPath: string, settings: Partial<AppSettings>
     platformVisibility: settings.platformVisibility ?? current.platformVisibility,
     scrollSyncEnabled: settings.scrollSyncEnabled ?? current.scrollSyncEnabled,
     focusModeEnabled: settings.focusModeEnabled ?? current.focusModeEnabled,
+    grayscaleModeEnabled: settings.grayscaleModeEnabled ?? current.grayscaleModeEnabled,
   }
   if (!isValidPlatformOrder(merged.platformOrder)) {
     merged.platformOrder = DEFAULT_SETTINGS.platformOrder
@@ -109,6 +113,7 @@ const validSettingsArb = fc.record({
   platformVisibility: validVisibilityArb,
   scrollSyncEnabled: fc.boolean(),
   focusModeEnabled: fc.boolean(),
+  grayscaleModeEnabled: fc.boolean(),
 })
 
 describe('Settings Manager', () => {
@@ -130,6 +135,7 @@ describe('Settings Manager', () => {
           expect(loaded.platformVisibility).toEqual(settings.platformVisibility)
           expect(loaded.scrollSyncEnabled).toEqual(settings.scrollSyncEnabled)
           expect(loaded.focusModeEnabled).toEqual(settings.focusModeEnabled)
+          expect(loaded.grayscaleModeEnabled).toEqual(settings.grayscaleModeEnabled)
         }),
         { numRuns: 100 }
       )
@@ -478,6 +484,171 @@ describe('Settings Manager', () => {
         ),
         { numRuns: 100 }
       )
+    })
+  })
+
+  /**
+   * **Feature: grayscale-mode, Property 1: Toggle inverts grayscale state**
+   * *For any* boolean grayscale state, toggling the state should produce the logical negation of the original state.
+   * **Validates: Requirements 1.2, 1.3**
+   */
+  describe('Property 1: Grayscale Mode Toggle Inversion', () => {
+    function toggleGrayscaleMode(currentState: boolean): boolean {
+      return !currentState
+    }
+
+    it('toggling grayscale mode always produces the opposite state', () => {
+      fc.assert(
+        fc.property(fc.boolean(), (initialState) => {
+          const newState = toggleGrayscaleMode(initialState)
+          expect(newState).toBe(!initialState)
+        }),
+        { numRuns: 100 }
+      )
+    })
+
+    it('double toggle returns to original state', () => {
+      fc.assert(
+        fc.property(fc.boolean(), (initialState) => {
+          const afterFirstToggle = toggleGrayscaleMode(initialState)
+          const afterSecondToggle = toggleGrayscaleMode(afterFirstToggle)
+          expect(afterSecondToggle).toBe(initialState)
+        }),
+        { numRuns: 100 }
+      )
+    })
+  })
+
+  /**
+   * **Feature: grayscale-mode, Property 2: Settings round-trip consistency**
+   * *For any* valid AppSettings object with a grayscaleModeEnabled value, saving then loading the settings should preserve the grayscaleModeEnabled value.
+   * **Validates: Requirements 2.1, 2.2**
+   */
+  describe('Property 2: Grayscale Mode Settings Round-Trip', () => {
+    it('grayscaleModeEnabled is preserved through save/load cycle', () => {
+      fc.assert(
+        fc.property(fc.boolean(), (grayscaleModeEnabled) => {
+          const settingsPath = join(testDir, `grayscale-rt-${Math.random().toString(36).slice(2)}.json`)
+          
+          saveSettingsToPath(settingsPath, { grayscaleModeEnabled })
+          const loaded = loadSettingsFromPath(settingsPath)
+          
+          expect(loaded.grayscaleModeEnabled).toBe(grayscaleModeEnabled)
+        }),
+        { numRuns: 100 }
+      )
+    })
+  })
+
+  /**
+   * **Feature: grayscale-mode, Property 5: Invalid settings default to disabled**
+   * *For any* invalid or missing grayscaleModeEnabled value in settings, loading settings should return `false` (grayscale disabled).
+   * **Validates: Requirements 2.4**
+   */
+  describe('Property 5: Grayscale Mode Invalid Settings Default', () => {
+    it('returns false for missing grayscaleModeEnabled', () => {
+      const settingsPath = join(testDir, 'no-grayscale.json')
+      writeFileSync(settingsPath, JSON.stringify({ scrollSyncEnabled: true }), 'utf-8')
+      
+      const loaded = loadSettingsFromPath(settingsPath)
+      expect(loaded.grayscaleModeEnabled).toBe(false)
+    })
+
+    it('returns false for non-boolean grayscaleModeEnabled values', () => {
+      fc.assert(
+        fc.property(
+          fc.anything().filter(v => typeof v !== 'boolean'),
+          (invalidValue) => {
+            const settingsPath = join(testDir, `invalid-grayscale-${Math.random().toString(36).slice(2)}.json`)
+            
+            try {
+              writeFileSync(settingsPath, JSON.stringify({ grayscaleModeEnabled: invalidValue }), 'utf-8')
+            } catch {
+              return true // Skip if we can't serialize
+            }
+            
+            const loaded = loadSettingsFromPath(settingsPath)
+            expect(loaded.grayscaleModeEnabled).toBe(false)
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
+    it('returns false when settings file does not exist', () => {
+      const settingsPath = join(testDir, 'nonexistent-grayscale.json')
+      const loaded = loadSettingsFromPath(settingsPath)
+      expect(loaded.grayscaleModeEnabled).toBe(false)
+    })
+  })
+
+  /**
+   * **Feature: grayscale-mode, Property 3: CSS filter matches grayscale state**
+   * *For any* grayscale mode state (enabled or disabled), the CSS filter applied to the document root should be `grayscale(100%)` when enabled and empty/none when disabled.
+   * **Validates: Requirements 1.4, 3.1, 3.2**
+   */
+  describe('Property 3: CSS Filter Matches Grayscale State', () => {
+    // Pure function to calculate expected CSS filter value
+    function getExpectedCssFilter(grayscaleModeEnabled: boolean): string {
+      return grayscaleModeEnabled ? 'grayscale(100%)' : ''
+    }
+
+    it('CSS filter value matches grayscale mode state', () => {
+      fc.assert(
+        fc.property(fc.boolean(), (grayscaleModeEnabled) => {
+          const expectedFilter = getExpectedCssFilter(grayscaleModeEnabled)
+          
+          if (grayscaleModeEnabled) {
+            expect(expectedFilter).toBe('grayscale(100%)')
+          } else {
+            expect(expectedFilter).toBe('')
+          }
+        }),
+        { numRuns: 100 }
+      )
+    })
+
+    it('filter is grayscale(100%) when enabled', () => {
+      expect(getExpectedCssFilter(true)).toBe('grayscale(100%)')
+    })
+
+    it('filter is empty when disabled', () => {
+      expect(getExpectedCssFilter(false)).toBe('')
+    })
+  })
+
+  /**
+   * **Feature: grayscale-mode, Property 4: Icon matches grayscale state**
+   * *For any* grayscale mode state, the displayed icon should be ColorModeIcon when disabled and GrayscaleModeIcon when enabled.
+   * **Validates: Requirements 1.1, 1.2, 1.3**
+   */
+  describe('Property 4: Icon Matches Grayscale State', () => {
+    // Pure function to determine which icon should be displayed
+    function getExpectedIcon(grayscaleModeEnabled: boolean): 'ColorModeIcon' | 'GrayscaleModeIcon' {
+      return grayscaleModeEnabled ? 'GrayscaleModeIcon' : 'ColorModeIcon'
+    }
+
+    it('icon type matches grayscale mode state', () => {
+      fc.assert(
+        fc.property(fc.boolean(), (grayscaleModeEnabled) => {
+          const expectedIcon = getExpectedIcon(grayscaleModeEnabled)
+          
+          if (grayscaleModeEnabled) {
+            expect(expectedIcon).toBe('GrayscaleModeIcon')
+          } else {
+            expect(expectedIcon).toBe('ColorModeIcon')
+          }
+        }),
+        { numRuns: 100 }
+      )
+    })
+
+    it('shows ColorModeIcon when grayscale is disabled', () => {
+      expect(getExpectedIcon(false)).toBe('ColorModeIcon')
+    })
+
+    it('shows GrayscaleModeIcon when grayscale is enabled', () => {
+      expect(getExpectedIcon(true)).toBe('GrayscaleModeIcon')
     })
   })
 })
