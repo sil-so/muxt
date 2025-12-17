@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sil-so/muxt/releases">Download for macOS</a>
+  <a href="https://github.com/sil-so/muxt/releases">Download Latest Release</a>
   ·
   <a href="#features">Features</a>
   ·
@@ -49,7 +49,9 @@ For developers and creatives who use social media to track resources, news, and 
 
 ### Download
 
-Get the latest version from the [GitHub Releases](https://github.com/sil-so/muxt/releases) page.
+Get the latest macOS version from the [GitHub Releases](https://github.com/sil-so/muxt/releases) page.
+
+**Windows & Linux:** Builds are available in the releases, but have not yet been tested. If you encounter OS-specific issues, please create an Issue.
 
 ### macOS Setup
 
