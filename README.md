@@ -24,13 +24,13 @@ For developers and creatives who use social media to track resources, news, and 
 
 ## Features
 
-- **Multi-column View** - Monitor X, LinkedIn, Bluesky, Threads, and Reddit simultaneously in a single window.
-- **Grayscale Mode** - Optional monochrome filter to reduce visual stimulation and focus purely on information.
-- **Focus Mode** - Automatically dims unfocused columns to minimize peripheral distractions while reading.
-- **Ad & Tracker Blocking** - Integrated Ghostery engine for a cleaner, faster, and more private experience.
-- **Smart Scroll Sync** - Scroll all feeds in unison. Sync automatically pauses when interacting with a specific post to prevent layout jumps.
-- **Customizable Layouts** - Drag-and-drop to reorder, resize columns, or toggle specific platforms on/off. Preferences persist between sessions.
-- **Default Browser Support** - External links are opened in your default OS browser.
+- 🧩 **Multi-column View** - Monitor X, LinkedIn, Bluesky, Threads, and Reddit simultaneously in a single window.
+- 🎨 **Grayscale Mode** - Optional monochrome filter to reduce visual stimulation and focus purely on information.
+- 🎯 **Focus Mode** - Automatically dims unfocused columns to minimize peripheral distractions while reading.
+- 🛡️ **Ad & Tracker Blocking** - Integrated Ghostery engine for a cleaner, faster, and more private experience.
+- 🔄 **Smart Scroll Sync** - Scroll all feeds in unison. Sync automatically pauses when interacting with a specific post to prevent layout jumps.
+- 🧱 **Customizable Layouts** - Drag-and-drop to reorder, resize columns, or toggle specific platforms on or off. Preferences persist between sessions.
+- 🌐 **Default Browser Support** - External links are opened in your default OS browser.
 
 ## Supported Platforms
 
