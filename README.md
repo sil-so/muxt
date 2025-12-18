@@ -138,4 +138,4 @@ If you have an idea for a feature or a bug fix:
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+[MIT](https://mit-license.org/)
